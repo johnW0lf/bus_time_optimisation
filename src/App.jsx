@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable"; // Correct import
+
 import ColorPicker from "./Colorpicker";
 import CodeVisualizer from "./CodeVisualizer";
 
@@ -195,23 +197,35 @@ useEffect(() => {
     </div>
   );
 
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    let y = 20;
-    doc.setFontSize(14);
-    doc.text("Bus Allocation Schedule", 14, y);
-    y += 10;
+const exportPDF = () => {
+  const doc = new jsPDF();
 
-    rows.forEach((row, idx) => {
-      const line = `Time: ${row.time || "—"} | Crowd: ${row.capacity || "—"} | Buses: ${
-        row.result.length > 0 ? row.result.map((r) => `Bus ${r + 1}`).join(", ") : "—"
-      } | Avg Diesel/km: ${row.minValue !== null ? row.minValue.toFixed(4) : "—"}`;
-      doc.text(line, 14, y);
-      y += 10;
-    });
+  // Table column headers
+  const headers = ["Time", "Crowd", "Buses"];
 
-    doc.save("bus_allocation_schedule.pdf");
-  };
+  // Table rows
+  const data = rows.map((row) => [
+    row.time || "—",
+    row.capacity || "—",
+    row.result.length > 0 ? row.result.map((r) => `Bus ${r + 1}`).join(", ") : "—",
+  ]);
+
+  doc.setFontSize(24);
+  doc.text("Bus Allocation Schedule", 10, 15);
+
+  // Correct usage
+  autoTable(doc, {
+    startY: 25,
+    head: [headers],
+    body: data,
+    styles: { fontSize: 12 },
+    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+    theme: "grid",
+  });
+
+  doc.save("bus_allocation_schedule.pdf");
+};
+
 
   // --- Render ---
   if (isMobilePortrait) {
@@ -259,8 +273,10 @@ useEffect(() => {
             <>
               <section>
                 <h2>
-                  Specifications of Buses
-                  <button onClick={toggleEdit}>{editMode ? "Save" : "Edit"}</button>
+                  <span>Specifications of Buses</span>
+                  <button style={{
+                    margin:"20px",
+                  }}onClick={toggleEdit}>{editMode ? "Save" : "Edit"}</button>
                 </h2>
                 <table>
                   <thead>
@@ -311,7 +327,6 @@ useEffect(() => {
                       <th>Time</th>
                       <th>Crowd Number</th>
                       <th>Allotted Buses</th>
-                      <th>Avg Diesel/km</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -338,7 +353,6 @@ useEffect(() => {
                             ? row.result.map((r) => `Bus ${r + 1}`).join(", ")
                             : "—"}
                         </td>
-                        <td>{row.minValue !== null ? row.minValue.toFixed(4) : "—"}</td>
                         <td>
                           <button onClick={() => removeRow(index)}>✕</button>
                         </td>

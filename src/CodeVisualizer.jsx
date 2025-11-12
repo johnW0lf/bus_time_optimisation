@@ -54,7 +54,7 @@ print("Items used (indices):", items)
       }}
     >
       <h2 style={{ textAlign: "Left", marginBottom: "1rem" }}>
-        Knapsack Algorithm Visualization
+        Bus allocation - Algorithm
       </h2>
       <pre
         style={{
