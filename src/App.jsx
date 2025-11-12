@@ -2,50 +2,66 @@ import React, { useState, useEffect } from "react";
 
 export default function App() {
   const [values, setValues] = useState([0.0625, 0.0625, 0.2]);
-  const [weights, setWeights] = useState([49, 49, 78]);
-  const [capacity, setCapacity] = useState(98);
+  const weights = [49, 49, 78];
+  const [capacity, setCapacity] = useState(78);
   const [result, setResult] = useState([]);
+  const [minValue, setMinValue] = useState(null);
 
-  function knapsackItems01(values, weights, capacity) {
+  function minValueKnapsackWithItems(values, weights, capacity) {
     const n = values.length;
     const maxWeight = weights.reduce((a, b) => a + b, 0);
-    if (maxWeight < capacity) return [...Array(n).keys()];
+    const dp = Array.from({ length: n + 1 }, () =>
+      new Array(maxWeight + 1).fill(Infinity)
+    );
+    const choice = Array.from({ length: n + 1 }, () =>
+      new Array(maxWeight + 1).fill(-1)
+    );
 
-    const dp = new Array(maxWeight + 1).fill(Infinity);
-    const choice = new Array(maxWeight + 1).fill(-1);
-    dp[0] = 0;
+    dp[0][0] = 0;
 
-    for (let i = 0; i < n; i++) {
-      for (let w = maxWeight; w >= weights[i]; w--) {
-        if (dp[w - weights[i]] + values[i] < dp[w]) {
-          dp[w] = dp[w - weights[i]] + values[i];
-          choice[w] = i;
+    // 0/1 Knapsack (no item reuse)
+    for (let i = 1; i <= n; i++) {
+      for (let w = 0; w <= maxWeight; w++) {
+        dp[i][w] = dp[i - 1][w];
+        choice[i][w] = choice[i - 1][w];
+
+        if (weights[i - 1] <= w) {
+          const newVal = dp[i - 1][w - weights[i - 1]] + values[i - 1];
+          if (newVal < dp[i][w]) {
+            dp[i][w] = newVal;
+            choice[i][w] = i - 1;
+          }
         }
       }
     }
 
-    let minWeight = -1;
+    // Find min value for weight >= capacity
+    let minWeight = capacity;
     for (let w = capacity; w <= maxWeight; w++) {
-      if (dp[w] !== Infinity) {
+      if (dp[n][w] < dp[n][minWeight]) {
         minWeight = w;
-        break;
       }
     }
-    if (minWeight === -1) return [...Array(n).keys()];
 
-    const itemsUsed = [];
+    // Backtrack to find chosen items
     let w = minWeight;
-    while (w > 0 && choice[w] !== -1) {
-      const i = choice[w];
-      itemsUsed.push(i);
-      w -= weights[i];
+    const itemsUsed = [];
+    for (let i = n; i > 0 && w > 0; i--) {
+      if (choice[i][w] !== -1) {
+        const item = choice[i][w];
+        if (dp[i][w] !== dp[i - 1][w]) {
+          itemsUsed.push(item);
+          w -= weights[item];
+        }
+      }
     }
 
-    return itemsUsed;
+    return [dp[n][minWeight], itemsUsed.reverse()];
   }
 
   useEffect(() => {
-    const items = knapsackItems01(values, weights, capacity);
+    const [minVal, items] = minValueKnapsackWithItems(values, weights, capacity);
+    setMinValue(minVal);
     setResult(items);
   }, [capacity]);
 
@@ -71,9 +87,7 @@ export default function App() {
         </div>
 
         <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-          <h2 className="font-semibold text-lg mb-3 text-gray-800">
-            Bus Data
-          </h2>
+          <h2 className="font-semibold text-lg mb-3 text-gray-800">Bus Data</h2>
           <table className="w-full text-sm border border-gray-300">
             <thead>
               <tr className="bg-gray-200">
@@ -109,6 +123,9 @@ export default function App() {
             {result.length > 0
               ? result.map((r) => `Bus ${r + 1}`).join(", ")
               : "None"}
+          </p>
+          <p className="text-gray-700 mt-2">
+            Minimum Value: {minValue !== null ? minValue.toFixed(4) : "—"}
           </p>
         </div>
       </div>
