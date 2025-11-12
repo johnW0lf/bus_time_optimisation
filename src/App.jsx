@@ -14,6 +14,7 @@ export default function App() {
   const [showStart, setShowStart] = useState(true);
   const [selectedBubble, setSelectedBubble] = useState("Model");
   const [isMobilePortrait, setIsMobilePortrait] = useState(false);
+const [busNames, setBusNames] = useState(["Non AC 001", "Non AC 002", "AC 001"]);
 
   const tableRef = useRef(null);
 
@@ -79,22 +80,21 @@ export default function App() {
     setRows(updated);
   };
 
-  const handleBusChange = (index, field, value) => {
-    if (field === "value") {
-      const updated = [...values];
-      updated[index] = parseFloat(value);
-      if (isNaN(updated[index]) || updated[index] < 0) updated[index] = 0;
-      setValues(updated);
-    } else {
-      const updated = [...weights];
-      let w = parseFloat(value);
-      if (isNaN(w) || w < 0) w = 0;
-      const maxTotal = 100000;
-      if (w > maxTotal) w = maxTotal;
-      updated[index] = w;
-      setWeights(updated);
-    }
-  };
+const handleBusChange = (index, field, value) => {
+  if (field === "name") {
+    const updated = [...busNames];
+    updated[index] = value;
+    setBusNames(updated);
+  } else if (field === "value") {
+    const updated = [...values];
+    updated[index] = value;
+    setValues(updated);
+  } else if (field === "weight") {
+    const updated = [...weights];
+    updated[index] = value;
+    setWeights(updated);
+  }
+};
 
 useEffect(() => {
   const updated = rows.map((row, index) => {
@@ -287,35 +287,46 @@ const exportPDF = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {values.map((v, i) => (
-                      <tr key={i}>
-                        <td>Bus {i + 1}</td>
-                        <td>
-                          {editMode ? (
-                            <input
-                              type="number"
-                              step="0.0001"
-                              value={v}
-                              onChange={(e) => handleBusChange(i, "value", e.target.value)}
-                            />
-                          ) : (
-                            v
-                          )}
-                        </td>
-                        <td>
-                          {editMode ? (
-                            <input
-                              type="number"
-                              value={weights[i]}
-                              onChange={(e) => handleBusChange(i, "weight", e.target.value)}
-                            />
-                          ) : (
-                            weights[i]
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+  {values.map((v, i) => (
+    <tr key={i}>
+      <td>
+        {editMode ? (
+          <input
+            type="text"
+            value={busNames[i]}
+            onChange={(e) => handleBusChange(i, "name", e.target.value)}
+          />
+        ) : (
+          busNames[i]
+        )}
+      </td>
+      <td>
+        {editMode ? (
+          <input
+            type="number"
+            step="0.0001"
+            value={v}
+            onChange={(e) => handleBusChange(i, "value", e.target.value)}
+          />
+        ) : (
+          v
+        )}
+      </td>
+      <td>
+        {editMode ? (
+          <input
+            type="number"
+            value={weights[i]}
+            onChange={(e) => handleBusChange(i, "weight", e.target.value)}
+          />
+        ) : (
+          weights[i]
+        )}
+      </td>
+    </tr>
+  ))}
+</tbody>
+
                 </table>
               </section>
 
