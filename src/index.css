@@ -2,11 +2,11 @@
 
 :root {
   /* === Default Theme Colors === */
-  --main: #f63c48;
-  --dark: #85262c;
-  --mid: #dc333e;
-  --hover: #971b2c;
-  --section-bg: #F64651;
+   --main: #e8e2cf;       
+  --dark: #d3c69d;       
+  --mid: #f2ecda;        
+  --hover: #ded6bd;      
+  --section-bg: #e0d6b9;
 }
 
 * {
@@ -178,6 +178,23 @@ section {
   display: flex;
   gap: 12px;
   z-index: 999;
+}
+/* Color picker UI */
+.color-picker {
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  display: flex;
+  gap: 12px;
+  z-index: 998;
+}
+.selector {
+  position: fixed;
+  top: 36px;
+  left: 24px;
+  display: flex;
+  gap: 12px;
+  z-index: 998;
 }
 
 .color-circle {

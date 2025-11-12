@@ -1,23 +1,37 @@
-import React, { useState, useEffect } from "react";
-import "./index.css";
+
+import React, { useState, useEffect, useRef } from "react";
+import { jsPDF } from "jspdf";
 import ColorPicker from "./Colorpicker";
+import CodeVisualizer from "./CodeVisualizer";
 
 export default function App() {
   const [values, setValues] = useState([0.0625, 0.0625, 0.2]);
   const [weights, setWeights] = useState([49, 49, 78]);
+  const [editMode, setEditMode] = useState(false);
   const [rows, setRows] = useState([{ time: "", capacity: "", result: [], minValue: null }]);
   const [showStart, setShowStart] = useState(true);
+  const [selectedBubble, setSelectedBubble] = useState("Model");
+  const [isMobilePortrait, setIsMobilePortrait] = useState(false);
 
-  // === 0/1 Knapsack ===
+  const tableRef = useRef(null);
+
+  // --- Detect mobile portrait ---
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isMobile = window.innerWidth <= 768;
+      const isPortrait = window.innerHeight > window.innerWidth;
+      setIsMobilePortrait(isMobile && isPortrait);
+    };
+    checkOrientation();
+    window.addEventListener("resize", checkOrientation);
+    return () => window.removeEventListener("resize", checkOrientation);
+  }, []);
+
   function minValueKnapsackWithItems(values, weights, capacity) {
     const n = values.length;
     const maxWeight = weights.reduce((a, b) => a + b, 0);
-    const dp = Array.from({ length: n + 1 }, () =>
-      new Array(maxWeight + 1).fill(Infinity)
-    );
-    const choice = Array.from({ length: n + 1 }, () =>
-      new Array(maxWeight + 1).fill(-1)
-    );
+    const dp = Array.from({ length: n + 1 }, () => new Array(maxWeight + 1).fill(Infinity));
+    const choice = Array.from({ length: n + 1 }, () => new Array(maxWeight + 1).fill(-1));
 
     dp[0][0] = 0;
     for (let i = 1; i <= n; i++) {
@@ -53,27 +67,171 @@ export default function App() {
 
   const handleChange = (index, field, value) => {
     const updated = [...rows];
-    updated[index][field] = value;
+    if (field === "capacity") {
+  // Keep whatever user types for display
+  updated[index][field] = value;
+} else {
+  updated[index][field] = value;
+}
+
     setRows(updated);
   };
 
-  useEffect(() => {
-    const updated = rows.map((row) => {
-      if (!row.capacity || isNaN(row.capacity))
-        return { ...row, result: [], minValue: null };
-      const [minVal, items] = minValueKnapsackWithItems(
-        values,
-        weights,
-        parseInt(row.capacity)
-      );
-      return { ...row, result: items, minValue: minVal };
+  const handleBusChange = (index, field, value) => {
+    if (field === "value") {
+      const updated = [...values];
+      updated[index] = parseFloat(value);
+      if (isNaN(updated[index]) || updated[index] < 0) updated[index] = 0;
+      setValues(updated);
+    } else {
+      const updated = [...weights];
+      let w = parseFloat(value);
+      if (isNaN(w) || w < 0) w = 0;
+      const maxTotal = 100000;
+      if (w > maxTotal) w = maxTotal;
+      updated[index] = w;
+      setWeights(updated);
+    }
+  };
+
+useEffect(() => {
+  const updated = rows.map((row, index) => {
+    if (!row.capacity || isNaN(row.capacity)) 
+      return { ...row, result: [], minValue: null };
+
+    const requestedCapacity = parseInt(row.capacity); // use raw input for display
+
+    // Convert time to minutes from midnight
+    const timeToMinutes = (timeStr) => {
+      if (!timeStr) return null;
+      const [h, m] = timeStr.split(":").map(Number);
+      return h * 60 + m;
+    };
+
+    // Collect buses used in previous rows within 35 mins
+    const currentTime = timeToMinutes(row.time);
+    let excludedBuses = [];
+    for (let i = 0; i < index; i++) {
+      const prevTime = timeToMinutes(rows[i].time);
+      if (
+        prevTime !== null &&
+        currentTime !== null &&
+        Math.abs(currentTime - prevTime) <= 35
+      ) {
+        excludedBuses = [...excludedBuses, ...rows[i].result];
+      }
+    }
+
+    // Filter weights/values to exclude previously used buses
+    const filteredValues = values.filter((_, i) => !excludedBuses.includes(i));
+    const filteredWeights = weights.filter((_, i) => !excludedBuses.includes(i));
+
+    const totalAvailableCapacity = filteredWeights.reduce((a, b) => a + b, 0);
+
+    if (requestedCapacity >= totalAvailableCapacity) {
+      // Return all non-excluded buses
+      const allAvailable = filteredWeights.map((_, i) => {
+        let count = -1;
+        for (let k = 0; k < weights.length; k++) {
+          if (!excludedBuses.includes(k)) count++;
+          if (count === i) return k;
+        }
+      });
+      return { ...row, result: allAvailable, minValue: null };
+    }
+
+    // Otherwise, run knapsack normally
+    const [minVal, items] = minValueKnapsackWithItems(
+      filteredValues,
+      filteredWeights,
+      requestedCapacity
+    );
+
+    // Map filtered indices back to original indices
+    const mappedItems = items.map((i) => {
+      let originalIndex = -1, count = -1;
+      for (let k = 0; k < values.length; k++) {
+        if (!excludedBuses.includes(k)) count++;
+        if (count === i) {
+          originalIndex = k;
+          break;
+        }
+      }
+      return originalIndex;
     });
-    setRows(updated);
-  }, [rows.length, values, weights, rows.map(r => r.capacity).join(",")]);
+
+    return { ...row, result: mappedItems, minValue: minVal };
+  });
+
+  setRows(updated);
+}, [rows.length, values, weights, rows.map((r) => r.capacity).join(","), rows.map((r) => r.time).join(",")]);
 
   const addRow = () =>
     setRows([...rows, { time: "", capacity: "", result: [], minValue: null }]);
   const removeRow = (index) => setRows(rows.filter((_, i) => i !== index));
+  const toggleEdit = () => setEditMode(!editMode);
+
+  const BubbleSelector = ({ options, selected, setSelected }) => (
+    <div style={{ display: "flex", gap: "12px" }}>
+      {options.map((item) => (
+        <div
+          key={item}
+          onClick={() => setSelected(item)}
+          style={{
+            padding: "8px 16px",
+            borderRadius: "20px",
+            cursor: "pointer",
+            border: selected === item ? "2px solid #ffffffff" : "2px solid #000000ff",
+            backgroundColor: selected === item ? "#ffffffff" : "#000000ff",
+            color: selected === item ? "#000000ff" : "#ffffffff",
+            fontWeight: "600",
+            transition: "all 0.2s ease",
+            userSelect: "none",
+          }}
+        >
+          {item}
+        </div>
+      ))}
+    </div>
+  );
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    let y = 20;
+    doc.setFontSize(14);
+    doc.text("Bus Allocation Schedule", 14, y);
+    y += 10;
+
+    rows.forEach((row, idx) => {
+      const line = `Time: ${row.time || "—"} | Crowd: ${row.capacity || "—"} | Buses: ${
+        row.result.length > 0 ? row.result.map((r) => `Bus ${r + 1}`).join(", ") : "—"
+      } | Avg Diesel/km: ${row.minValue !== null ? row.minValue.toFixed(4) : "—"}`;
+      doc.text(line, 14, y);
+      y += 10;
+    });
+
+    doc.save("bus_allocation_schedule.pdf");
+  };
+
+  // --- Render ---
+  if (isMobilePortrait) {
+    return (
+      <div
+        style={{
+          color: "white",
+          display: "flex",
+          height: "100vh",
+          justifyContent: "center",
+          alignItems: "center",
+          textAlign: "center",
+          padding: "20px",
+          fontSize: "18px",
+        }}
+      >
+        Please rotate to landscape mode.
+      </div>
+    );
+  }
 
   return (
     <div className="main-container show">
@@ -83,87 +241,123 @@ export default function App() {
         </button>
       ) : (
         <div>
-          <h1>Bus Allocation Schedule</h1>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h1>Dynamic Bus Allocator</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              <BubbleSelector
+                options={["Model", "Code"]}
+                selected={selectedBubble}
+                setSelected={setSelectedBubble}
+              />
+              <ColorPicker />
+            </div>
+          </div>
 
-          <section>
-            <h2>Available Buses</h2>
-            <p className="sub">Capacities are given in the table</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Bus</th>
-                  <th>Value</th>
-                  <th>Weight</th>
-                </tr>
-              </thead>
-              <tbody>
-                {values.map((v, i) => (
-                  <tr key={i}>
-                    <td>Bus {i + 1}</td>
-                    <td>{v}</td>
-                    <td>{weights[i]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+          {selectedBubble === "Code" ? (
+            <CodeVisualizer />
+          ) : (
+            <>
+              <section>
+                <h2>
+                  Specifications of Buses
+                  <button onClick={toggleEdit}>{editMode ? "Save" : "Edit"}</button>
+                </h2>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Bus</th>
+                      <th>Avg Diesel/km</th>
+                      <th>Capacity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {values.map((v, i) => (
+                      <tr key={i}>
+                        <td>Bus {i + 1}</td>
+                        <td>
+                          {editMode ? (
+                            <input
+                              type="number"
+                              step="0.0001"
+                              value={v}
+                              onChange={(e) => handleBusChange(i, "value", e.target.value)}
+                            />
+                          ) : (
+                            v
+                          )}
+                        </td>
+                        <td>
+                          {editMode ? (
+                            <input
+                              type="number"
+                              value={weights[i]}
+                              onChange={(e) => handleBusChange(i, "weight", e.target.value)}
+                            />
+                          ) : (
+                            weights[i]
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
 
-          <section>
-            <table>
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Capacity</th>
-                  <th>Allotted Buses</th>
-                  <th>Avg Diesel</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, index) => (
-                  <tr key={index}>
-                    <td>
-                      <input
-                        type="time"
-                        value={row.time}
-                        onChange={(e) =>
-                          handleChange(index, "time", e.target.value)
-                        }
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        value={row.capacity}
-                        onChange={(e) =>
-                          handleChange(index, "capacity", e.target.value)
-                        }
-                        placeholder="Capacity"
-                      />
-                    </td>
-                    <td>
-                      {row.result.length > 0
-                        ? row.result.map((r) => `Bus ${r + 1}`).join(", ")
-                        : "—"}
-                    </td>
-                    <td>
-                      {row.minValue !== null
-                        ? row.minValue.toFixed(4)
-                        : "—"}
-                    </td>
-                    <td>
-                      <button onClick={() => removeRow(index)}>✕</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <button onClick={addRow} style={{ marginTop: "12px" }}>
-              + Add Row
-            </button>
-          </section>
+              <section ref={tableRef}>
+                <h2>Bus Allocation Schedule</h2>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Crowd Number</th>
+                      <th>Allotted Buses</th>
+                      <th>Avg Diesel/km</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, index) => (
+                      <tr key={index}>
+                        <td>
+                          <input
+                            type="time"
+                            value={row.time}
+                            onChange={(e) => handleChange(index, "time", e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            value={row.capacity}
+                            onChange={(e) => handleChange(index, "capacity", e.target.value)}
+                            placeholder="Capacity"
+                          />
+                        </td>
+                        <td>
+                          {row.result.length > 0
+                            ? row.result.map((r) => `Bus ${r + 1}`).join(", ")
+                            : "—"}
+                        </td>
+                        <td>{row.minValue !== null ? row.minValue.toFixed(4) : "—"}</td>
+                        <td>
+                          <button onClick={() => removeRow(index)}>✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button onClick={addRow} style={{ marginTop: "12px" }}>
+                  + Add Row
+                </button>
+              </section>
 
-          <ColorPicker />
+              <div style={{ marginTop: "20px" }}>
+                <button onClick={exportPDF} style={{ padding: "10px 16px", fontSize: "16px" }}>
+                  Export as PDF
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
