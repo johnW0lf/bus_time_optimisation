@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
+import "./index.css";
+import ColorPicker from "./Colorpicker";
 
 export default function App() {
   const [values, setValues] = useState([0.0625, 0.0625, 0.2]);
-  const weights = [49, 49, 78];
-  const [capacity, setCapacity] = useState(78);
-  const [result, setResult] = useState([]);
-  const [minValue, setMinValue] = useState(null);
+  const [weights, setWeights] = useState([49, 49, 78]);
+  const [rows, setRows] = useState([{ time: "", capacity: "", result: [], minValue: null }]);
+  const [showStart, setShowStart] = useState(true);
 
+  // === 0/1 Knapsack ===
   function minValueKnapsackWithItems(values, weights, capacity) {
     const n = values.length;
     const maxWeight = weights.reduce((a, b) => a + b, 0);
@@ -18,13 +20,9 @@ export default function App() {
     );
 
     dp[0][0] = 0;
-
-    // 0/1 Knapsack (no item reuse)
     for (let i = 1; i <= n; i++) {
       for (let w = 0; w <= maxWeight; w++) {
         dp[i][w] = dp[i - 1][w];
-        choice[i][w] = choice[i - 1][w];
-
         if (weights[i - 1] <= w) {
           const newVal = dp[i - 1][w - weights[i - 1]] + values[i - 1];
           if (newVal < dp[i][w]) {
@@ -35,100 +33,139 @@ export default function App() {
       }
     }
 
-    // Find min value for weight >= capacity
     let minWeight = capacity;
     for (let w = capacity; w <= maxWeight; w++) {
-      if (dp[n][w] < dp[n][minWeight]) {
-        minWeight = w;
-      }
+      if (dp[n][w] < dp[n][minWeight]) minWeight = w;
     }
 
-    // Backtrack to find chosen items
     let w = minWeight;
     const itemsUsed = [];
     for (let i = n; i > 0 && w > 0; i--) {
-      if (choice[i][w] !== -1) {
-        const item = choice[i][w];
-        if (dp[i][w] !== dp[i - 1][w]) {
-          itemsUsed.push(item);
-          w -= weights[item];
-        }
+      const item = choice[i][w];
+      if (item !== -1 && dp[i][w] !== dp[i - 1][w]) {
+        itemsUsed.push(item);
+        w -= weights[item];
       }
     }
 
     return [dp[n][minWeight], itemsUsed.reverse()];
   }
 
+  const handleChange = (index, field, value) => {
+    const updated = [...rows];
+    updated[index][field] = value;
+    setRows(updated);
+  };
+
   useEffect(() => {
-    const [minVal, items] = minValueKnapsackWithItems(values, weights, capacity);
-    setMinValue(minVal);
-    setResult(items);
-  }, [capacity]);
+    const updated = rows.map((row) => {
+      if (!row.capacity || isNaN(row.capacity))
+        return { ...row, result: [], minValue: null };
+      const [minVal, items] = minValueKnapsackWithItems(
+        values,
+        weights,
+        parseInt(row.capacity)
+      );
+      return { ...row, result: items, minValue: minVal };
+    });
+    setRows(updated);
+  }, [rows.length, values, weights, rows.map(r => r.capacity).join(",")]);
+
+  const addRow = () =>
+    setRows([...rows, { time: "", capacity: "", result: [], minValue: null }]);
+  const removeRow = (index) => setRows(rows.filter((_, i) => i !== index));
 
   return (
-    <div className="min-h-screen flex items-center justify-start bg-gray-100 p-8">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center space-y-6 ml-10">
-        <h1 className="text-3xl font-bold mb-4 text-gray-800">
-          Bus Allocation Optimizer
-        </h1>
+    <div className="main-container show">
+      {showStart ? (
+        <button className="start-button" onClick={() => setShowStart(false)}>
+          Start ->
+        </button>
+      ) : (
+        <div>
+          <h1>Bus Allocation Schedule</h1>
 
-        <div className="space-y-2">
-          <label className="font-medium text-gray-700">
-            Capacity: {capacity}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max={weights.reduce((a, b) => a + b, 0)}
-            value={capacity}
-            onChange={(e) => setCapacity(parseInt(e.target.value))}
-            className="w-full accent-blue-600 cursor-pointer"
-          />
-        </div>
-
-        <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-          <h2 className="font-semibold text-lg mb-3 text-gray-800">Bus Data</h2>
-          <table className="w-full text-sm border border-gray-300">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="border p-2">Bus</th>
-                <th className="border p-2">Value</th>
-                <th className="border p-2">Weight</th>
-              </tr>
-            </thead>
-            <tbody>
-              {values.map((v, i) => (
-                <tr
-                  key={i}
-                  className={
-                    result.includes(i)
-                      ? "bg-green-100 font-semibold"
-                      : "bg-white"
-                  }
-                >
-                  <td className="border p-2">Bus {i + 1}</td>
-                  <td className="border p-2">{v}</td>
-                  <td className="border p-2">{weights[i]}</td>
+          <section>
+            <h2>Available Buses</h2>
+            <p className="sub">Capacities are given in the table</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Bus</th>
+                  <th>Value</th>
+                  <th>Weight</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {values.map((v, i) => (
+                  <tr key={i}>
+                    <td>Bus {i + 1}</td>
+                    <td>{v}</td>
+                    <td>{weights[i]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
 
-        <div className="mt-6 bg-gray-50 p-4 rounded-xl shadow-sm">
-          <h2 className="font-semibold text-lg text-gray-800">
-            Selected Buses:
-          </h2>
-          <p className="text-gray-700 mt-2">
-            {result.length > 0
-              ? result.map((r) => `Bus ${r + 1}`).join(", ")
-              : "None"}
-          </p>
-          <p className="text-gray-700 mt-2">
-            Minimum Value: {minValue !== null ? minValue.toFixed(4) : "—"}
-          </p>
+          <section>
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Capacity</th>
+                  <th>Allotted Buses</th>
+                  <th>Avg Diesel</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr key={index}>
+                    <td>
+                      <input
+                        type="time"
+                        value={row.time}
+                        onChange={(e) =>
+                          handleChange(index, "time", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={row.capacity}
+                        onChange={(e) =>
+                          handleChange(index, "capacity", e.target.value)
+                        }
+                        placeholder="Capacity"
+                      />
+                    </td>
+                    <td>
+                      {row.result.length > 0
+                        ? row.result.map((r) => `Bus ${r + 1}`).join(", ")
+                        : "—"}
+                    </td>
+                    <td>
+                      {row.minValue !== null
+                        ? row.minValue.toFixed(4)
+                        : "—"}
+                    </td>
+                    <td>
+                      <button onClick={() => removeRow(index)}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <button onClick={addRow} style={{ marginTop: "12px" }}>
+              + Add Row
+            </button>
+          </section>
+
+          <ColorPicker />
         </div>
-      </div>
+      )}
     </div>
   );
 }

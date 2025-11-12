@@ -1,68 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* === Default Theme Colors === */
+  --main: #f63c48;
+  --dark: #85262c;
+  --mid: #dc333e;
+  --hover: #971b2c;
+  --section-bg: #F64651;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+  color: #000;
 }
-a:hover {
-  color: #535bf2;
+
+html, body {
+  height: 100%;
 }
 
 body {
-  margin: 0;
+  background-color: #000;
   display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Outer container */
+.outer-container {
+  background-color: #0d1117;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 95%;
+  max-width: 1024px;
+  min-height: 90vh;
+  overflow: hidden;
+}
+
+/* Main container */
+.main-container {
+  background-color: #000000;
+  padding: 40px;
+  width: 100%;
+  max-width: 900px;
+  text-align: center;
+  opacity: 1;
+  transform: none;
+  transition: none;
+  max-height: 85vh;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  min-height: 400px;
+}
+
+.main-container.show {
+  opacity: 1;
+  transform: none;
+  min-width: 70vw;
+  min-height: 50vh;
+}
+
+/* Headings */
+h1, h2 {
+  font-size: 32px;
+  font-weight: 200;
+  margin: 20px 0px 0px 12px;
+}
+
+p.sub {
+  margin: 2px 0px 48px 12px;
 }
 
 h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  font-size: 2rem;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+/* Table */
+table {
+  text-align: center;
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background-color: var(--main);
+  border-radius: 32px;
+  overflow: hidden;
+}
+
+th, td {
+  background-color: var(--mid);
+  padding: 12px;
+  text-align: center;
+  border: none;
+}
+
+th {
   font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  background-color: var(--dark);
+  font-size: 20px;
+  letter-spacing: 0.5px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+thead tr:first-child th:last-child {
+  border-top-right-radius: 14px;
+}
+
+tr:hover {
+  background-color: var(--hover);
+}
+
+/* Inputs */
+input[type="text"],
+input[type="number"],
+input[type="time"] {
+  background-color: var(--section-bg);
+  border: none;
+  border-radius: 20px;
+  padding: 8px;
+  width: 100%;
+  text-align: center;
+  outline: none;
+  transition: 0.3s;
+}
+
+input:focus {
+  box-shadow: 0 0 8px #000000;
+}
+
+/* Buttons */
+button {
+  background-color: #000000;
+  color: #ffffff;
+  border-radius: 32px;
+  border: none;
+  padding: 10px 16px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--hover);
+  transform: scale(1.05);
+}
+
+/* Sub-sections */
+section {
+  border: none;
+  border-radius: 32px;
+  padding: 20px;
+  text-align: left;
+  margin-top: 24px;
+  background-color: var(--section-bg);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--section-bg);
+}
+
+/* Color picker UI */
+.color-picker {
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  display: flex;
+  gap: 12px;
+  z-index: 999;
+}
+
+.color-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #fff;
+  transition: transform 0.2s ease;
+}
+
+.color-circle:hover {
+  transform: scale(1.15);
+}
+button.start-button{
+  margin-top: 10vh;
+  padding: 20px 45px 20px 45px;
+  font-size: 64px;
+  border-radius: 64px;
+}
+button.start-button:hover{
+  margin-top: 10vh;
+  padding: 20px 96px 20px 45px;
+  font-size: 69px;
+  color: rgb(203, 14, 70);
+  background-color: black;
+  border-radius: 64px;
 }
